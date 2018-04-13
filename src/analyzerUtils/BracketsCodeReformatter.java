@@ -158,7 +158,7 @@ public class BracketsCodeReformatter {
 
 	
 	/**
-	 * Splits the string into two different lines (loop / condition declaration + resst of the string).
+	 * Splits the string into two different lines (loop / condition declaration + rest of the string).
 	 * @param list
 	 * 		The program's input inserted into ArrayList data structure.
 	 * @param currentCheckedIndex
@@ -225,12 +225,63 @@ public class BracketsCodeReformatter {
 	 * @return
 	 */
 	private static int addBrackets(ArrayList<String> list, int currentCheckedIndex) {
+		
 		int numOfPotentialBrackets = 1;
 		int closerBracketIndex = currentCheckedIndex + 2;
 		String currentCheckedLine = list.get(currentCheckedIndex);
-		String bracketLine = null;
-		Matcher matcher = null;
+		String fixedDaclarationWithBracket = addOpenBracketToEndOfDeclaration(currentCheckedLine);
+		Object[] answer;
+		
+		list.remove(currentCheckedIndex);
+		list.add(currentCheckedIndex, fixedDaclarationWithBracket);
+		
+		for (int i = currentCheckedIndex + 1; i < list.size(); i++) {
+			if (lineIsComment(list.get(i))) {
+				closerBracketIndex++;
+				continue;
+			}
+			
+			answer = checkForInnerScopes(list, i);
+			
+			if (recursiveCheck(list, i, list.get(i))) {
+				addBrackets(list, i);
+				if((boolean)answer[0] == true) {
+					closerBracketIndex = i + ((int)answer[1] + 1);
+					i += (int)answer[1] - 1;
+					continue;
+				} else {
+					currentCheckedLine = list.get(i);
+					fixedDaclarationWithBracket = addOpenBracketToEndOfDeclaration(currentCheckedLine);
+					list.remove(i);
+					list.add(i, fixedDaclarationWithBracket);
+					numOfPotentialBrackets++;
+					closerBracketIndex = i + ((int)answer[1] + 2);
+				}
+			} else {
+				closerBracketIndex += ((int)answer[1]);
+				break;
+			}
+		}
+		
+		// Adding closing brackets as much
+		for (int i = 0; i < numOfPotentialBrackets; i++) {
+			list.add(closerBracketIndex, "}");
+		}
 
+		return numOfPotentialBrackets;
+	}
+
+	
+	/**
+	 * Adds open curly brackets to loop or condition declaration without curly brackets.
+	 * @param currentCheckedLine - Declaration without opening bracket
+	 * @return The given checkedLine with opening bracket after declaration 
+	 */
+	private static String addOpenBracketToEndOfDeclaration(String currentCheckedLine) {
+		
+		String bracketLine;
+		Matcher matcher;
+		
 		if (commentForLoopWithoutBrackets.matcher(currentCheckedLine).find()) {
 			matcher = onlyForLoopDeclaration.matcher(currentCheckedLine);
 			if (matcher.find()) {
@@ -267,25 +318,89 @@ public class BracketsCodeReformatter {
 		} else {
 			currentCheckedLine = currentCheckedLine + " {";
 		}
-		list.remove(currentCheckedIndex);
-		list.add(currentCheckedIndex, currentCheckedLine);
-
-		for (int i = currentCheckedIndex + 1; i < list.size() && recursiveCheck(list, currentCheckedIndex,list.get(i)); i++) {
-			currentCheckedLine = list.get(i);
-			currentCheckedLine = currentCheckedLine + " {";
-			list.remove(i);
-			list.add(i, currentCheckedLine);
-			numOfPotentialBrackets++;
-			closerBracketIndex = i + 2;
-		}
-
-		for (int i = 0; i < numOfPotentialBrackets; i++) {
-			list.add(closerBracketIndex, "}");
-		}
-
-		return numOfPotentialBrackets;
+		
+		return currentCheckedLine;
 	}
 
+	
+	private static Object[] checkForInnerScopes(ArrayList<String> list, int currentCheckedIndex) {
+		
+		String currentCheckedLine;
+		int numOfLinesToIgnore = 0;
+		Object[] answer = new Object[2];
+		answer[0] = false;
+
+		currentCheckedLine = list.get(++currentCheckedIndex);
+		while (lineIsComment(currentCheckedLine)) {
+			numOfLinesToIgnore++;
+			currentCheckedIndex++;
+			currentCheckedLine = list.get(currentCheckedIndex);
+		}
+
+		if (lineContainsOpeningBracket(currentCheckedLine)) {
+			numOfLinesToIgnore++;
+			while (lineIsComment(currentCheckedLine) || !lineContainsClosingBracket(currentCheckedLine)) {
+				numOfLinesToIgnore++;
+				currentCheckedIndex++;
+				currentCheckedLine = list.get(currentCheckedIndex);
+			}
+			
+			answer[0] = true;	
+		}
+		
+		answer[1] = numOfLinesToIgnore;
+		return answer;
+	}
+
+	
+	private static boolean lineIsComment(String currentCheckedLine) {
+		
+		boolean lineIsComment = false;
+		Matcher lineIsCommentMathcer;
+		Pattern lineIsCommentPattern = Pattern.compile("^(\\s|\\t)*(//)");
+		
+		lineIsCommentMathcer = lineIsCommentPattern.matcher(currentCheckedLine);
+		
+		if (lineIsCommentMathcer.find()) {
+			lineIsComment = true;
+		}
+		
+		return lineIsComment;
+	}
+	
+	
+	private static boolean lineContainsOpeningBracket(String currentCheckedLine) {
+		
+		boolean lineContainsOpenBracket = false;
+		Matcher lineContainsOpenBracketMatcher;
+		Pattern lineContainsOpenBracketPattern = Pattern.compile(".*?\\{.*?");
+		
+		lineContainsOpenBracketMatcher = lineContainsOpenBracketPattern.matcher(currentCheckedLine);
+		
+		if (lineContainsOpenBracketMatcher.find()) {
+			lineContainsOpenBracket = true;
+		}
+		
+		return lineContainsOpenBracket;
+	}
+	
+	
+	private static boolean lineContainsClosingBracket(String currentCheckedLine) {
+			
+			boolean lineContainsClosingBracket = false;
+			Matcher llineContainsClosingBracketMatcher;
+			Pattern lineContainsClosingBracketPattern = Pattern.compile(".*?\\}.*?");
+			
+			llineContainsClosingBracketMatcher = lineContainsClosingBracketPattern.matcher(currentCheckedLine);
+			
+			if (llineContainsClosingBracketMatcher.find()) {
+				lineContainsClosingBracket = true;
+			}
+			
+			return lineContainsClosingBracket;
+		}
+	
+	
 	/**
 	 * An auxiliary method for checking if loop or condition declaration isn't followed by concrete command.
 	 * @param line
@@ -293,7 +408,7 @@ public class BracketsCodeReformatter {
 	 * @return
 	 * 		True if the method check succeed, else false.
 	 */
-private static boolean recursiveCheck(ArrayList<String> list, int currentCheckedIndex, String line) {
+	private static boolean recursiveCheck(ArrayList<String> list, int currentCheckedIndex, String line) {
 		
 		String nextLine = null;
 		Matcher isBracket = null;
@@ -310,7 +425,11 @@ private static boolean recursiveCheck(ArrayList<String> list, int currentChecked
 				|| newlineElseStatementWithoutBrackets.matcher(line).find()
 				|| commentElseStatementWithoutBrackets.matcher(line).find()	) {
 
-			nextLine = list.get(currentCheckedIndex + 1);
+			nextLine = list.get(++currentCheckedIndex);
+			while(lineIsComment(nextLine)) {
+				nextLine = list.get(++currentCheckedIndex);
+			}
+			
 			isBracket = openBracket.matcher(nextLine);
 			
 			if (!isBracket.find()) {
@@ -392,29 +511,4 @@ private static boolean recursiveCheck(ArrayList<String> list, int currentChecked
 		checkDeclarationsWithoutBrackets(list);
 		analyzerUtils.FileOperations.writeCodeToFileString(list, new File(reformattedFilePath));
 	}
-	
-	
-
-	
-
-	
-	
-	public static void main(String[] args) {
-		ArrayList<String> list = analyzerUtils.FileOperations
-		.fileContentToArrayListStringOnly(new File("C:\\Users\\gal\\Desktop\\test.txt"), true);
-
-		checkInlineDecleration(list);
-		checkDeclarationsWithoutBrackets(list);
-		for (String line : list)
-			System.out.println(line);
-	
-//		String asd = "else if( a=7)";
-//		Matcher m;
-//		m = newlineElifStatementWithoutBrackets.matcher(asd);
-//		if(m.find()) {
-//			System.out.println("yes");
-//		}
-	}
-		
-	
 }
