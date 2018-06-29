@@ -9,13 +9,16 @@ import java.util.regex.Matcher;
 
 public class MethodAnalyzer {
 
-	// note : all the patterns will match non empty scop loops
+	// note : all the patterns will match non empty scope loops
 	private static Pattern containsForLoopStatement =  Pattern.compile("for \\((.*);(.*);(.*)\\).*\\{") ;
 	private static int[] forLoopConditionLocations = {1,2};
 	private static Pattern containsWhileLoopStatement = Pattern.compile("while \\((.*)\\).*\\{") ;
 	private static int[] whileLoopConditionLocations = {1};
 	private static Pattern containsForEachLoopStatement =  Pattern.compile("for \\((.*):(.*)\\).*\\{") ;
 	private static int[] forEachLoopConditionLocations = {2};
+	private static Pattern isRegularAssignmentStatement = Pattern.compile("(.* if ){0}(.* for ){0}(.* while ){0}(.*)( \\= )(.*);");
+	private static Pattern isSpecialnAssignmentStatement = Pattern.compile("(.* if ){0}(.* for ){0}(.* while ){0}(.*)((\\*=)|(\\+=)|(\\-=)|(\\/=)|(\\%=))(.*);");
+	private static int[] specialAssignmentConditionLocations = {5,6,7,8,9};
 
 
 	public MethodAnalyzer() {}
@@ -43,7 +46,7 @@ public class MethodAnalyzer {
 			// step 1 - update the dependencies parameters
 			MethodAnalyzer.scanForMoreDependenciesParameters(line, paramsNames);
 
-			// step 2 - check for any loop satement
+			// step 2 - check for any loop statement
 
 			// =========== regular for loop
 			Matcher forStatementMatcher = isCodeLineMatchePattern(containsForLoopStatement, line);
@@ -53,7 +56,7 @@ public class MethodAnalyzer {
 					orderedPairdependentLoopLines.add(new Integer[]{lineIndex,endScope});
 				}			
 				lineIndex++;
-				continue; // next iteretion
+				continue; // next iteration
 			} 
 
 			// =========== while loop
@@ -64,7 +67,7 @@ public class MethodAnalyzer {
 					orderedPairdependentLoopLines.add(new Integer[]{lineIndex,endScope});
 				}
 				lineIndex++;
-				continue; // next iteretion
+				continue; // next iteration
 			}
 
 			// =========== forEach loop
@@ -94,25 +97,75 @@ public class MethodAnalyzer {
 		}
 		return recursionCallLines;
 	}
-	
-	/**	Scan the current line and check if there is new assignments of method's parameters,
-	 * if there is add them into ParamsNames ArrayList   
+
+	/** Scan the current line and manage ParamsNames ArrayList in case there is assignments of method's parameters
+	 *  by calling the appropriate method. 
 	 * 
 	 * @param line current line that we check  
 	 * @param paramsNames ArrayList of parameters names  
 	 */
  	private static void scanForMoreDependenciesParameters(StringBuilder line,ArrayList<String> paramsNames){
-		//TODO:: handle arr[i] = arr.length
 		//TODO:: handle size = getArrayLength();
 		//TODO:: when checking the right side check if literal
-		//TODO:: handle += and -=
-		//TODO:: need to handle: ternary if , for, while 
+		//TODO:: need to handle: ternary if
+		//TODO:: Handle recursive calls
+		String delimiter = null;
+		Matcher regularAssignmentMatcher = isRegularAssignmentStatement.matcher(line);
+		if(regularAssignmentMatcher.matches()) {
+			delimiter = "=";
+			handleAssignment(line,paramsNames,delimiter);
+		}
+		else {
+			Matcher specialAssignmentMatcher = isSpecialnAssignmentStatement.matcher(line);
+			if(specialAssignmentMatcher.matches()) {
+				delimiter = getDelimiterType(line,specialAssignmentMatcher,specialAssignmentConditionLocations);
+				if(delimiter != null) {
+					handleAssignment(line,paramsNames,delimiter);	
+				}
+			}
+		}
+	}
+	
+	/** get assignment line and decide which assignment operator are being used
+	 * 
+	 * @param line current line that being analyze
+	 * @param statementMatcher the pattern that current line match
+	 * @param groupNumber array of the group numbers the matcher found
+	 * @return the delimiter that use in the current line
+	 */
+	private static String getDelimiterType(StringBuilder line,Matcher statementMatcher, int[] groupNumber) {
+		String delimiter = null;
+		for (int i : groupNumber) {
+			delimiter = statementMatcher.group(i);
+			if(line.toString().contains(delimiter)) {
+				break;
+			}
+		}
+		
+		return delimiter;
+	}
 
-		if(line.toString().matches("(.* if ){0}(.* for ){0}(.* while ){0}(.*)( \\= )(.*);")) {
-			Boolean isDepend = false;
-
-			String leftSideVariable = null;
-			ArrayList<String> rightSideVariables = MethodAnalyzer.extractVariableFromStatement(line.toString().replace(";", ""));
+	/**
+	 * In case of regular assignment ( = ) - check for depended parameters:
+	 * if left side depended and right side depended don't remove from paramsArray,   
+	 * if left side depended and right side not depended remove from paramsArray,
+	 * if left side not depended and right side depended add to paramsArray,
+	 * if left side not depended and right side not depended don't do nothing
+	 * ------------------------------------------------------------------------------
+	 * In case of special assignment ( /= or %= or *= or += or -= ) - check for depended parameters:
+	 * if left side depended and right side depended don't remove from paramsArray,  
+	 * if left side depended and right side not depended don't remove from paramsArray,
+	 * if left side not depended and right side depended add to paramsArray,
+	 * if left side not depended and right side not depended don't do nothing 
+	 * 
+	 * @param line current line that we check  
+	 * @param paramsNames ArrayList of parameters names
+	 */
+	private static void handleAssignment(StringBuilder line,ArrayList<String> paramsNames,String delimiter) {
+		Boolean isDepend = false;
+		String leftSideVariable = null;
+		if(delimiter != null) {
+			ArrayList<String> rightSideVariables = MethodAnalyzer.extractVariableFromStatement(line.toString().replace(";", ""), delimiter);
 			leftSideVariable = rightSideVariables.remove(0);
 
 			// check if right side variables appear in paramsName array
@@ -129,34 +182,45 @@ public class MethodAnalyzer {
 				}
 			}
 
-			// the assignment not contains dependencies and left side in paramsNames array
-			if(paramsNames.contains(leftSideVariable) && !(isDepend == true)) {
-				paramsNames.remove(leftSideVariable);
-				return;
+			/*in this point right side not depend but if we handle *= or += case there no need to check left side,
+			 * if left side depend we will not remove him from paramsNames ArrayList
+			 * if left side not depend he isn't exist and we don't need to remove him from paramsNames ArrayList */ 
+
+			if(delimiter.equals("=")) {
+				// the assignment not contains dependencies and left side in paramsNames array
+				if(paramsNames.contains(leftSideVariable) && !(isDepend == true)) {
+					paramsNames.remove(leftSideVariable);
+					return;
+				}
 			}
 		}
-
-
 	}
-
 
 	/** extract all the variables on the specific line. 
 	 * 
-	 * @param line
+	 * @param line current line that being analyzed
 	 * @return Array List of all variables in line
 	 */
-	private static ArrayList<String> extractVariableFromStatement(String line) {
-		//String scanForLeftSide;
+	private static ArrayList<String> extractVariableFromStatement(String line, String delimiter) {
 		String leftSide = null;
-		Boolean isAssignmentChar = false; 
+		//Boolean isAssignmentChar = false; 
 		ArrayList<String> variablesArrayList = new ArrayList<>();
 		String[] lineArr = line.toString().split(" ");
 		for (int i = 0; i < lineArr.length; i++) {
-			if(lineArr[i].equals("=")) {
-				if(!isAssignmentChar) {
-					leftSide = lineArr[i - 1];
-					variablesArrayList.add(leftSide);
+			if(lineArr[i].equals(delimiter)) {
+				if(lineArr[i - 1].contains("]")) {
+					while(!lineArr[i].contains("[")) {
+						i--;
+					}
+					leftSide = lineArr[i];
+					while(!lineArr[i].contains("]")){
+						leftSide+= lineArr[++i];
+					}
 				}
+				else {
+					leftSide = lineArr[i - 1];
+				}
+				variablesArrayList.add(leftSide);
 				for (int j = i +1; j < lineArr.length; j++) {
 					//filter empty cells
 					if(!lineArr[j].equals("")) {
@@ -173,7 +237,7 @@ public class MethodAnalyzer {
 				}
 				break;
 			}
-			else if(lineArr[i].contains("[")) {
+			/*else if(lineArr[i].contains("[")) {
 				leftSide = lineArr[i];
 				while(!lineArr[i].contains("]")){
 					leftSide+= lineArr[++i];
@@ -182,7 +246,7 @@ public class MethodAnalyzer {
 				if(lineArr[i + 1].equals("=")) {
 					isAssignmentChar = true;
 				}
-			}
+			}*/
 		}
 
 		return variablesArrayList ;
@@ -194,7 +258,7 @@ public class MethodAnalyzer {
 	 * paramsNames list
 	 * 
 	 * @param statementMatcher
-	 *            matcher creater from a pattern.matcher() of a code line matched some loop pattern.
+	 *            matcher was created from a pattern.matcher() of a code line matched some loop pattern.
 	 * @param groupNumbers
 	 * 			  array of the group numbers the matcher found, for this method to check for any dependencies.
 	 * @param paramsNames
@@ -228,6 +292,7 @@ public class MethodAnalyzer {
 				result = true;
 			}
 		}
+		
 		return result;
 	}
 
@@ -250,8 +315,4 @@ public class MethodAnalyzer {
 			return null;
 		}
 	}
-
-
-
-
 }
