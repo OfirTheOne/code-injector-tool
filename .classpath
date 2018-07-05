@@ -4,5 +4,6 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="jars/google-java-format-1.5-all-deps.jar"/>
 	<classpathentry kind="lib" path="jars/gson-2.6.2.jar"/>
+	<classpathentry kind="lib" path="jars/algorithmInterface.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
