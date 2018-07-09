@@ -6,61 +6,71 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class BracketsCodeReformatter {
-	static Pattern onlyForLoopDeclaration = Pattern.compile("^(\\s|\\t)*for(\\s)*\\((.*?)\\)");
-	static Pattern onlyWhileLoopDeclaration = Pattern.compile("^(\\s|\\t)*while(\\s)*\\((.*?)\\)");
-	static Pattern onlyIfStatementDeclaration = Pattern.compile("^(\\s|\\t)*if(\\s)*\\((.*?)\\)");
-	static Pattern onlyElseStatementDeclaration = Pattern.compile("^(\\s|\\t)*else(\\s)*");
-	static Pattern onlyElifStatementDeclaration = Pattern.compile("^(\\s|\\t)*else if(\\s)*\\((.*?)\\)");
+	
+	ArrayList<Pattern> statementsDeclarations;
+	ArrayList<Pattern> inlineDeclarations;
+	ArrayList<Pattern> newlineDeclarations;
+	ArrayList<Pattern> commentedDeclarations;
 
-	static Pattern inlineForLoopWithoutBrackets = Pattern.compile("^(\\s|\\t)*for(\\s)*\\((.*?)\\)(\\s)*+[^{}]+");	
-	static Pattern inlineWhileLoopWithoutBrackets = Pattern.compile("^(\\s|\\t)*while(\\s)*\\((.*?)\\)(\\s)*+[^{}]+");
-	static Pattern inlineIfStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*if(\\s)*\\((.*?)\\)(\\s)*+[^{}]+");
-	static Pattern inlineElseStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*else[^ if](\\s)*[^{}]+");
-	static Pattern inlineElifStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*else if(\\s)*\\((.*?)\\)(\\s)*+[^{}]+");
-
-	static Pattern newlineForLoopWithoutBrackets = Pattern.compile("^(\\s|\\t)*for(\\s)*\\((.*?)\\)(\\s|\\t)*$");
-	static Pattern newlineWhileLoopWithoutBrackets = Pattern.compile("^(\\s|\\t)*while(\\s)*\\((.*?)\\)(\\s|\\t)*$");
-	static Pattern newlineIfStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*if(\\s)*\\((.*?)\\)(\\s|\\t)*$");
-	static Pattern newlineElseStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*else(\\s)*(\\s|\\t)*$");
-	static Pattern newlineElifStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*else if(\\s)*\\((.*?)\\)(\\s|\\t)*$");
-
-	static Pattern commentForLoopWithoutBrackets = Pattern.compile("^(\\s|\\t)*for(\\s)*\\((.*?)\\)(\\s)*+(//)+");
-	static Pattern commentWhileLoopWithoutBrackets = Pattern.compile("^(\\s|\\t)*while(\\s)*\\((.*?)\\)(\\s)*+(//)+");
-	static Pattern commentIfStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*if(\\s)*\\((.*?)\\)(\\s)*+(//)+");
-	static Pattern commentElseStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*else(\\s)*(//)+");
-	static Pattern commentElifStatementWithoutBrackets = Pattern.compile("^(\\s|\\t)*else if(\\s)*\\((.*?)\\)(\\s)*+(//)+");
-
-
+	public BracketsCodeReformatter() {
+		this.statementsDeclarations = new ArrayList<Pattern>();
+		statementsDeclarations.add(Pattern.compile("^(\\s|\\t)*for(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)"));
+		statementsDeclarations.add(Pattern.compile("^(\\s|\\t)*while(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)"));
+		statementsDeclarations.add(Pattern.compile("^(\\s|\\t)*if(\\s)*\\(((?!(if\\s)|(else\\s)|(for\\s)|(while\\s)).*)\\)"));
+		statementsDeclarations.add(Pattern.compile("^(\\s|\\t)*else(\\s)*"));
+		statementsDeclarations.add(Pattern.compile("^(\\s|\\t)*else if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)"));
+		
+		this.inlineDeclarations = new ArrayList<>();
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*for(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*while(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*else[^ if](\\s)*[^{}]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*else if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}]+"));
+		
+		this.newlineDeclarations = new ArrayList<>();
+		newlineDeclarations.add(Pattern.compile("^(\\s|\\t)*for(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s|\\t)*$"));
+		newlineDeclarations.add(Pattern.compile("^(\\s|\\t)*while(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s|\\t)*$"));
+		newlineDeclarations.add(Pattern.compile("^(\\s|\\t)*if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s|\\t)*$"));
+		newlineDeclarations.add(Pattern.compile("^(\\s|\\t)*else(\\s)*(\\s|\\t)*$"));
+		newlineDeclarations.add(Pattern.compile("^(\\s|\\t)*else if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s|\\t)*$"));
+		
+		this.commentedDeclarations = new ArrayList<>();
+		commentedDeclarations.add(Pattern.compile("^(\\s|\\t)*for(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+(//)+"));
+		commentedDeclarations.add(Pattern.compile("^(\\s|\\t)*while(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+(//)+"));
+		commentedDeclarations.add(Pattern.compile("^(\\s|\\t)*if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+(//)+"));
+		commentedDeclarations.add(Pattern.compile("^(\\s|\\t)*else(\\s)*(//)+"));
+		commentedDeclarations.add(Pattern.compile("^(\\s|\\t)*else if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+(//)+"));
+	}
+	
 	/**
 	 * Checks for in-line declaration.
 	 * If line has loop/condition declaration followed by non-comment command it will considered as in-line declaration.
 	 * 
-	 * @param list
+	 * @param codeList
 	 * 		The program's input inserted into ArrayList data structure.
 	 */
-	private static void checkInlineDecleration(ArrayList<String> list) {
-		int listSize = list.size();
-		int currentCheckedIndex = 0;
+	private void checkInlineDecleration(ArrayList<String> codeList) {
+		int codeListSize = codeList.size();
+		int currentCheckedIndex;
 		String currentCheckedLine = null;
-		String foundStatement = null;
+		Integer foundStatement;
 		boolean done;
 
-		for (; currentCheckedIndex < listSize; currentCheckedIndex++) {
+		for (currentCheckedIndex = 0; currentCheckedIndex < codeListSize; currentCheckedIndex++) {
 			done = false;
-			currentCheckedLine = list.get(currentCheckedIndex);		
+			currentCheckedLine = codeList.get(currentCheckedIndex);		
 			foundStatement = typeOfInlineStatement(currentCheckedLine);
 			
 			if (foundStatement != null) {
-				done = inlineFix(list, currentCheckedIndex, foundStatement);
+				done = inlineStatementFix(codeList, currentCheckedIndex, foundStatement);
 			}
 
-			if ( done ) {
-				listSize++;
+			if (done == true) {
+				codeListSize++;
 			}
 		}
 	}
 	
-
 	/**
 	 * Checks which expression appears at the beginning of the checked line.
 	 * @param currentCheckedLine
@@ -68,98 +78,50 @@ public class BracketsCodeReformatter {
 	 * @return
 	 * 		The expression at the beginning of the string.
 	 */
-	public static String typeOfInlineStatement(String currentCheckedLine) {
-		
+	public Integer typeOfInlineStatement(String currentCheckedLine) {
+
 		Matcher inlineStatement;
 		
-		inlineStatement = inlineForLoopWithoutBrackets.matcher(currentCheckedLine);
-		
-		if (inlineStatement.find()) {
-			return "for";
-		}
-		
-		inlineStatement = inlineWhileLoopWithoutBrackets.matcher(currentCheckedLine);
-		if (inlineStatement.find()) {
-			return "while";
-		}
-		
-		inlineStatement = inlineIfStatementWithoutBrackets.matcher(currentCheckedLine);
-		
-		if(inlineStatement.find()) {
-			return "if";
-		}
-
-		inlineStatement = inlineElifStatementWithoutBrackets.matcher(currentCheckedLine);
-		if (inlineStatement.find()) {
-			return "else if";
-		}
-		
-		inlineStatement = inlineElseStatementWithoutBrackets.matcher(currentCheckedLine);
-		if (inlineStatement.find()) {
-			return "else";
+		for (Integer statementIndex = 0; statementIndex < inlineDeclarations.size(); statementIndex++) {
+			inlineStatement = inlineDeclarations.get(statementIndex).matcher(currentCheckedLine);
+			if (inlineStatement.find()) {
+				return statementIndex;
+			}
 		}
 		
 		return null;
 	}
-	
-	
-	
+		
 	/**
 	 * This method fix in-line statements if found.
-	 * @param list
+	 * @param codeList
 	 * 		The program's input inserted into ArrayList data structure.
 	 * @param currentCheckedIndex
 	 * 		The current index in the list we want to check for.
-	 * @param type
+	 * @param statementIndex
 	 * 		The expression that we want to check - loop or condition.
 	 * @return
 	 * 		Return true if fix action has done. The action could fail if the expression is followed by a comment.
 	 */
-	private static boolean inlineFix(ArrayList<String> list, int currentCheckedIndex, String type) {
+	private boolean inlineStatementFix(ArrayList<String> codeList, int currentCheckedIndex, Integer statementIndex) {
 		Matcher declarationOnly = null;
-		boolean isComment = false;
-		String currentCheckedLine = list.get(currentCheckedIndex);
-
-		isComment = checkIfCommented(currentCheckedLine, type);
+		String currentCheckedLine = codeList.get(currentCheckedIndex);
+		boolean isComment = checkIfCommented(currentCheckedLine, statementIndex);
 		
 		if (!isComment) {
-			switch (type) {
-
-			case "for":
-				declarationOnly = onlyForLoopDeclaration.matcher(currentCheckedLine);
-				break;
-
-			case "while":
-				declarationOnly = onlyWhileLoopDeclaration.matcher(currentCheckedLine);
-				break;
-
-			case "if":
-				declarationOnly = onlyIfStatementDeclaration.matcher(currentCheckedLine);
-				break;
-				
-			case "else if":
-				declarationOnly = onlyElifStatementDeclaration.matcher(currentCheckedLine);
-				break;
-				
-			case "else":
-				declarationOnly = onlyElseStatementDeclaration.matcher(currentCheckedLine);
-				break;
-			}
-			
-			
+			declarationOnly = statementsDeclarations.get(statementIndex).matcher(currentCheckedLine);
 			if (declarationOnly.find()) {
-				splitInlineStatement(list, currentCheckedIndex, declarationOnly.group(0), type);
+				splitInlineStatement(codeList, currentCheckedIndex, declarationOnly.group(0), statementIndex);
 				return true;
 			}
 		}
+		
 		return false;
 	}
 	
-
-	
 	/**
 	 * Splits the string into two different lines (loop / condition declaration + rest of the string).
-	 * @param list
+	 * @param codeList
 	 * 		The program's input inserted into ArrayList data structure.
 	 * @param currentCheckedIndex
 	 * 		The current index in the list we want to check for.
@@ -168,49 +130,32 @@ public class BracketsCodeReformatter {
 	 * @param type
 	 * 		The expression that we want to check - loop or condition.
 	 */
-	private static void splitInlineStatement(ArrayList<String> list, int currentCheckedIndex, String statementOnly,
-			String type) {
-		String lineWithoutStatementDec = null;
-		String currentCheckedLine = list.get(currentCheckedIndex);
-		list.remove(currentCheckedIndex);
-
-		switch (type) {
-		case "for":
-			lineWithoutStatementDec = currentCheckedLine.replaceFirst("^(\\s|\\t)*for(\\s)*\\((.*?)\\)", "");
-			break;
-		case "while":
-			lineWithoutStatementDec = currentCheckedLine.replaceFirst("^(\\s|\\t)*while(\\s)*\\((.*?)\\)", "");
-			break;
-		case "if":
-			lineWithoutStatementDec = currentCheckedLine.replaceFirst("^(\\s|\\t)*if(\\s)*\\((.*?)\\)", "");
-			break;
-		case "else if":
-			lineWithoutStatementDec = currentCheckedLine.replaceFirst("^(\\s|\\t)*else if(\\s)*\\((.*?)\\)", "");
-			break;
-		case "else":
-			lineWithoutStatementDec = currentCheckedLine.replaceFirst("^(\\s|\\t)*else", "");
-			break;
-		}
-
-		list.add(currentCheckedIndex, statementOnly);
-		list.add(currentCheckedIndex + 1, lineWithoutStatementDec);
+	private void splitInlineStatement(ArrayList<String> codeList, int currentCheckedIndex, String statementOnly,
+			Integer type) {
+		String restOfLine = null;
+		String currentCheckedLine = codeList.get(currentCheckedIndex);
+		
+		codeList.remove(currentCheckedIndex);
+		restOfLine = currentCheckedLine.replaceFirst(statementsDeclarations.get(type).toString(), "");
+		codeList.add(currentCheckedIndex, statementOnly);
+		codeList.add(currentCheckedIndex + 1, restOfLine);
 	}
 
 	
 	/**
 	 * Checks for loop or condition declaration line with no brackets.
-	 * @param list
+	 * @param codeList
 	 * 		The program's input inserted into ArrayList data structure.
 	 */
-	private static void checkDeclarationsWithoutBrackets(ArrayList<String> list) {
+	private void checkDeclarationsWithoutBrackets(ArrayList<String> codeList) {
 		String currentCheckedLine;
-		int currentCheckedIndex = 0;
-		int listSize = list.size();
+		int currentCheckedIndex;
+		int codeSize = codeList.size();
 
-		for (; currentCheckedIndex < listSize; currentCheckedIndex++) {
-			currentCheckedLine = list.get(currentCheckedIndex);
-			if (recursiveCheck(list, currentCheckedIndex, currentCheckedLine)) {
-				listSize += addBrackets(list, currentCheckedIndex);
+		for (currentCheckedIndex = 0; currentCheckedIndex < codeSize; currentCheckedIndex++) {
+			currentCheckedLine = codeList.get(currentCheckedIndex);
+			if (recursiveCheck(codeList, currentCheckedIndex, currentCheckedLine)) {
+				codeSize += addBrackets(codeList, currentCheckedIndex);
 			}
 		}
 	}
@@ -218,42 +163,42 @@ public class BracketsCodeReformatter {
 	
 	/**
 	 * Adds curly brackets to loop or condition declaration without curly brackets.
-	 * @param list
+	 * @param codeList
 	 * 		The program's input inserted into ArrayList data structure.
 	 * @param currentCheckedIndex
 	 * 		The current index in the list we want to check for.
 	 * @return
 	 */
-	private static int addBrackets(ArrayList<String> list, int currentCheckedIndex) {
+	private int addBrackets(ArrayList<String> codeList, int currentCheckedIndex) {
 		
 		int numOfPotentialBrackets = 1;
 		int closerBracketIndex = currentCheckedIndex + 2;
-		String currentCheckedLine = list.get(currentCheckedIndex);
+		String currentCheckedLine = codeList.get(currentCheckedIndex);
 		String fixedDaclarationWithBracket = addOpenBracketToEndOfDeclaration(currentCheckedLine);
 		Object[] answer;
 		
-		list.remove(currentCheckedIndex);
-		list.add(currentCheckedIndex, fixedDaclarationWithBracket);
+		codeList.remove(currentCheckedIndex);
+		codeList.add(currentCheckedIndex, fixedDaclarationWithBracket);
 		
-		for (int i = currentCheckedIndex + 1; i < list.size(); i++) {
-			if (lineIsComment(list.get(i))) {
+		for (int i = currentCheckedIndex + 1; i < codeList.size(); i++) {
+			if (lineIsCommented(codeList.get(i))) {
 				closerBracketIndex++;
 				continue;
 			}
 			
-			answer = checkForInnerScopes(list, i);
+			answer = checkForInnerScopes(codeList, i);
 			
-			if (recursiveCheck(list, i, list.get(i))) {
-				addBrackets(list, i);
+			if (recursiveCheck(codeList, i, codeList.get(i))) {
+				addBrackets(codeList, i);
 				if((boolean)answer[0] == true) {
 					closerBracketIndex = i + ((int)answer[1] + 1);
 					i += (int)answer[1] - 1;
 					continue;
 				} else {
-					currentCheckedLine = list.get(i);
+					currentCheckedLine = codeList.get(i);
 					fixedDaclarationWithBracket = addOpenBracketToEndOfDeclaration(currentCheckedLine);
-					list.remove(i);
-					list.add(i, fixedDaclarationWithBracket);
+					codeList.remove(i);
+					codeList.add(i, fixedDaclarationWithBracket);
 					numOfPotentialBrackets++;
 					closerBracketIndex = i + ((int)answer[1] + 2);
 				}
@@ -265,7 +210,7 @@ public class BracketsCodeReformatter {
 		
 		// Adding closing brackets as much
 		for (int i = 0; i < numOfPotentialBrackets; i++) {
-			list.add(closerBracketIndex, "}");
+			codeList.add(closerBracketIndex, "}");
 		}
 
 		return numOfPotentialBrackets;
@@ -277,45 +222,25 @@ public class BracketsCodeReformatter {
 	 * @param currentCheckedLine - Declaration without opening bracket
 	 * @return The given checkedLine with opening bracket after declaration 
 	 */
-	private static String addOpenBracketToEndOfDeclaration(String currentCheckedLine) {
+	private String addOpenBracketToEndOfDeclaration(String currentCheckedLine) {
 		
 		String bracketLine;
 		Matcher matcher;
+		boolean commentedStatement = false;
 		
-		if (commentForLoopWithoutBrackets.matcher(currentCheckedLine).find()) {
-			matcher = onlyForLoopDeclaration.matcher(currentCheckedLine);
-			if (matcher.find()) {
+		for (Pattern statementPattern : commentedDeclarations) {
+			if (statementPattern.matcher(currentCheckedLine).find()) {
+				int statementIndex = commentedDeclarations.indexOf(statementPattern);
+				matcher = statementsDeclarations.get(statementIndex).matcher(currentCheckedLine);
 				bracketLine = matcher.group(0);
 				currentCheckedLine = currentCheckedLine.replaceFirst("^((\\s|\\t)*for(\\s)*\\((.*?)\\))",
 						bracketLine + " {");
+				commentedStatement = true;
+				break;
 			}
-		} else if (commentWhileLoopWithoutBrackets.matcher(currentCheckedLine).find()) {
-			matcher = onlyWhileLoopDeclaration.matcher(currentCheckedLine);
-			if (matcher.find()) {
-				bracketLine = matcher.group(0);
-				currentCheckedLine = currentCheckedLine.replaceFirst("^(\\s|\\t)*while(\\s)*\\((.*?)\\)",
-						bracketLine + " {");
-			}
-		} else if (commentIfStatementWithoutBrackets.matcher(currentCheckedLine).find()) {
-			matcher = onlyIfStatementDeclaration.matcher(currentCheckedLine);
-			if (matcher.find()) {
-				bracketLine = matcher.group(0);
-				currentCheckedLine = currentCheckedLine.replaceFirst("^(\\s|\\t)*if(\\s)*\\((.*?)\\)",
-						bracketLine + " {");
-			}
-		} else if (commentElifStatementWithoutBrackets.matcher(currentCheckedLine).find()) {
-			matcher = onlyElifStatementDeclaration.matcher(currentCheckedLine);
-			if (matcher.find()) {
-				bracketLine = matcher.group(0);
-				currentCheckedLine = currentCheckedLine.replaceFirst("^(\\s|\\t)*else if(\\s)*", bracketLine + " {");
-			}
-		} else if (commentElseStatementWithoutBrackets.matcher(currentCheckedLine).find()) {
-			matcher = onlyElseStatementDeclaration.matcher(currentCheckedLine);
-			if (matcher.find()) {
-				bracketLine = matcher.group(0);
-				currentCheckedLine = currentCheckedLine.replaceFirst("^(\\s|\\t)*else(\\s)*", bracketLine + " {");
-			}
-		} else {
+		}
+		
+		if (commentedStatement == false) {
 			currentCheckedLine = currentCheckedLine + " {";
 		}
 		
@@ -323,7 +248,7 @@ public class BracketsCodeReformatter {
 	}
 
 	
-	private static Object[] checkForInnerScopes(ArrayList<String> list, int currentCheckedIndex) {
+	private Object[] checkForInnerScopes(ArrayList<String> list, int currentCheckedIndex) {
 		
 		String currentCheckedLine;
 		int numOfLinesToIgnore = 0;
@@ -331,7 +256,7 @@ public class BracketsCodeReformatter {
 		answer[0] = false;
 
 		currentCheckedLine = list.get(++currentCheckedIndex);
-		while (lineIsComment(currentCheckedLine)) {
+		while (lineIsCommented(currentCheckedLine)) {
 			numOfLinesToIgnore++;
 			currentCheckedIndex++;
 			currentCheckedLine = list.get(currentCheckedIndex);
@@ -339,7 +264,7 @@ public class BracketsCodeReformatter {
 
 		if (lineContainsOpeningBracket(currentCheckedLine)) {
 			numOfLinesToIgnore++;
-			while (lineIsComment(currentCheckedLine) || !lineContainsClosingBracket(currentCheckedLine)) {
+			while (lineIsCommented(currentCheckedLine) || !lineContainsClosingBracket(currentCheckedLine)) {
 				numOfLinesToIgnore++;
 				currentCheckedIndex++;
 				currentCheckedLine = list.get(currentCheckedIndex);
@@ -353,7 +278,7 @@ public class BracketsCodeReformatter {
 	}
 
 	
-	private static boolean lineIsComment(String currentCheckedLine) {
+	private boolean lineIsCommented(String currentCheckedLine) {
 		
 		boolean lineIsComment = false;
 		Matcher lineIsCommentMathcer;
@@ -369,7 +294,7 @@ public class BracketsCodeReformatter {
 	}
 	
 	
-	private static boolean lineContainsOpeningBracket(String currentCheckedLine) {
+	private boolean lineContainsOpeningBracket(String currentCheckedLine) {
 		
 		boolean lineContainsOpenBracket = false;
 		Matcher lineContainsOpenBracketMatcher;
@@ -385,7 +310,7 @@ public class BracketsCodeReformatter {
 	}
 	
 	
-	private static boolean lineContainsClosingBracket(String currentCheckedLine) {
+	private boolean lineContainsClosingBracket(String currentCheckedLine) {
 			
 			boolean lineContainsClosingBracket = false;
 			Matcher llineContainsClosingBracketMatcher;
@@ -403,31 +328,38 @@ public class BracketsCodeReformatter {
 	
 	/**
 	 * An auxiliary method for checking if loop or condition declaration isn't followed by concrete command.
-	 * @param line
+	 * @param currentCheckedLine
 	 * 		Checked line in the program's input.
 	 * @return
 	 * 		True if the method check succeed, else false.
 	 */
-	private static boolean recursiveCheck(ArrayList<String> list, int currentCheckedIndex, String line) {
+	private boolean recursiveCheck(ArrayList<String> codeList, int currentCheckedIndex, String currentCheckedLine) {
 		
 		String nextLine = null;
 		Matcher isBracket = null;
 		Pattern openBracket = Pattern.compile("^(\\s|\\t)*\\{");
+		boolean found = false;
 		
-		if (newlineForLoopWithoutBrackets.matcher(line).find()
-				|| commentForLoopWithoutBrackets.matcher(line).find()
-				|| newlineWhileLoopWithoutBrackets.matcher(line).find()
-				|| commentWhileLoopWithoutBrackets.matcher(line).find()
-				|| newlineIfStatementWithoutBrackets.matcher(line).find()
-				|| commentIfStatementWithoutBrackets.matcher(line).find()
-				|| newlineElifStatementWithoutBrackets.matcher(line).find()
-				|| commentElifStatementWithoutBrackets.matcher(line).find()
-				|| newlineElseStatementWithoutBrackets.matcher(line).find()
-				|| commentElseStatementWithoutBrackets.matcher(line).find()	) {
-
-			nextLine = list.get(++currentCheckedIndex);
-			while(lineIsComment(nextLine)) {
-				nextLine = list.get(++currentCheckedIndex);
+		for (Pattern statementPattern : newlineDeclarations) {
+			if(statementPattern.matcher(currentCheckedLine).find()) {
+				found = true;
+				break;
+			}
+		}
+		
+		if (found == false) {
+			for (Pattern statementPattern : commentedDeclarations) {
+				if(statementPattern.matcher(currentCheckedLine).find()) {
+					found = true;
+					break;
+				}
+			}
+		}
+		
+		if (found) {
+			nextLine = codeList.get(++currentCheckedIndex);
+			while(lineIsCommented(nextLine)) {
+				nextLine = codeList.get(++currentCheckedIndex);
 			}
 			
 			isBracket = openBracket.matcher(nextLine);
@@ -436,6 +368,7 @@ public class BracketsCodeReformatter {
 				return true;
 			}
 		}
+		
 		return false;
 	}
 
@@ -444,55 +377,19 @@ public class BracketsCodeReformatter {
 	 * Checks if the current loop / condition declaration is followed by a comment.
 	 * @param currentCheckedLine
 	 * 		The current checked line string.
-	 * @param type
+	 * @param statementIndex
 	 * 		The expression that we want to check - loop or condition.
 	 * @return
 	 */
-	public static boolean checkIfCommented(String currentCheckedLine, String type) {
+	public boolean checkIfCommented(String currentCheckedLine, Integer statementIndex) {
 
-		Matcher comment;
-
-		switch (type) {
-		case "for":
-			comment = commentForLoopWithoutBrackets.matcher(currentCheckedLine);
-			if (comment.find()) {
-				return true;
-			}
-			break;
-
-		case "while":
-			comment = commentWhileLoopWithoutBrackets.matcher(currentCheckedLine);
-			if (comment.find()) {
-				return true;
-			}
-			break;
-
-		case "if":
-			comment = commentIfStatementWithoutBrackets.matcher(currentCheckedLine);
-			if (comment.find()) {
-				return true;
-			}
-			break;
-			
-		case "else if":
-			comment = commentElifStatementWithoutBrackets.matcher(currentCheckedLine);
-			if (comment.find()) {
-				return true;
-			}
-			break;
-			
-		case "else":
-			comment = commentElseStatementWithoutBrackets.matcher(currentCheckedLine);
-			if (comment.find()) {
-				return true;
-			}
-			break;
+		Matcher commentedStatement = commentedDeclarations.get(statementIndex).matcher(currentCheckedLine);
+		if (commentedStatement.find()) {
+			return true;
 		}
-	
+
 		return false;
 	}
-	
-	
 	
 	/**
 	 * The initiator method of this class.
@@ -506,9 +403,9 @@ public class BracketsCodeReformatter {
 
 		ArrayList<String> list = analyzerUtils.FileOperations
 				.fileContentToArrayListStringOnly(new File(inputFilePath), true);
-
-		checkInlineDecleration(list);
-		checkDeclarationsWithoutBrackets(list);
+		BracketsCodeReformatter bracketsCodeReformatter = new BracketsCodeReformatter();
+		bracketsCodeReformatter.checkInlineDecleration(list);
+		bracketsCodeReformatter.checkDeclarationsWithoutBrackets(list);
 		analyzerUtils.FileOperations.writeCodeToFileString(list, new File(reformattedFilePath));
 	}
 }
