@@ -11,8 +11,17 @@ public class BracketsCodeReformatter {
 	ArrayList<Pattern> inlineDeclarations;
 	ArrayList<Pattern> newlineDeclarations;
 	ArrayList<Pattern> commentedDeclarations;
-
-	public BracketsCodeReformatter() {
+	ArrayList<String> codeList;
+	int codeSize;
+	
+	/**
+	 * Module constructor - responsible for initialize statements patterns lists.
+	 * @param codeList - the requested code to be reformatted represented by list of strings.
+	 */
+	public BracketsCodeReformatter(ArrayList<String> codeList) {
+		this.codeList = codeList;
+		this.codeSize = codeList.size();
+		
 		this.statementsDeclarations = new ArrayList<Pattern>();
 		statementsDeclarations.add(Pattern.compile("^(\\s|\\t)*for(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)"));
 		statementsDeclarations.add(Pattern.compile("^(\\s|\\t)*while(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)"));
@@ -21,11 +30,11 @@ public class BracketsCodeReformatter {
 		statementsDeclarations.add(Pattern.compile("^(\\s|\\t)*else if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)"));
 		
 		this.inlineDeclarations = new ArrayList<>();
-		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*for(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}]+"));
-		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*while(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}]+"));
-		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}]+"));
-		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*else[^ if](\\s)*[^{}]+"));
-		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*else if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*for(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}(\\s)]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*while(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}(\\s)]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}(\\s)]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*else[^ if](\\s)*[^{}(\\s)]+"));
+		inlineDeclarations.add(Pattern.compile("^(\\s|\\t)*else if(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s)*+[^{}(\\s)]+"));
 		
 		this.newlineDeclarations = new ArrayList<>();
 		newlineDeclarations.add(Pattern.compile("^(\\s|\\t)*for(\\s)*\\(((?!(if\\\\s)|(else\\\\s)|(for\\\\s)|(while\\\\s)).*)\\)(\\s|\\t)*$"));
@@ -49,7 +58,7 @@ public class BracketsCodeReformatter {
 	 * @param codeList
 	 * 		The program's input inserted into ArrayList data structure.
 	 */
-	private void checkInlineDecleration(ArrayList<String> codeList) {
+	private void checkInlineDecleration() {
 		int codeListSize = codeList.size();
 		int currentCheckedIndex;
 		String currentCheckedLine = null;
@@ -62,7 +71,7 @@ public class BracketsCodeReformatter {
 			foundStatement = typeOfInlineStatement(currentCheckedLine);
 			
 			if (foundStatement != null) {
-				done = inlineStatementFix(codeList, currentCheckedIndex, foundStatement);
+				done = inlineStatementFix(currentCheckedIndex, foundStatement);
 			}
 
 			if (done == true) {
@@ -103,7 +112,7 @@ public class BracketsCodeReformatter {
 	 * @return
 	 * 		Return true if fix action has done. The action could fail if the expression is followed by a comment.
 	 */
-	private boolean inlineStatementFix(ArrayList<String> codeList, int currentCheckedIndex, Integer statementIndex) {
+	private boolean inlineStatementFix(int currentCheckedIndex, Integer statementIndex) {
 		Matcher declarationOnly = null;
 		String currentCheckedLine = codeList.get(currentCheckedIndex);
 		boolean isComment = checkIfCommented(currentCheckedLine, statementIndex);
@@ -111,7 +120,7 @@ public class BracketsCodeReformatter {
 		if (!isComment) {
 			declarationOnly = statementsDeclarations.get(statementIndex).matcher(currentCheckedLine);
 			if (declarationOnly.find()) {
-				splitInlineStatement(codeList, currentCheckedIndex, declarationOnly.group(0), statementIndex);
+				splitInlineStatement(currentCheckedIndex, declarationOnly.group(0), statementIndex);
 				return true;
 			}
 		}
@@ -130,7 +139,7 @@ public class BracketsCodeReformatter {
 	 * @param type
 	 * 		The expression that we want to check - loop or condition.
 	 */
-	private void splitInlineStatement(ArrayList<String> codeList, int currentCheckedIndex, String statementOnly,
+	private void splitInlineStatement(int currentCheckedIndex, String statementOnly,
 			Integer type) {
 		String restOfLine = null;
 		String currentCheckedLine = codeList.get(currentCheckedIndex);
@@ -141,73 +150,87 @@ public class BracketsCodeReformatter {
 		codeList.add(currentCheckedIndex + 1, restOfLine);
 	}
 
-	
 	/**
 	 * Checks for loop or condition declaration line with no brackets.
 	 * @param codeList
 	 * 		The program's input inserted into ArrayList data structure.
 	 */
-	private void checkDeclarationsWithoutBrackets(ArrayList<String> codeList) {
+	private void checkDeclarationsWithoutBrackets(int index) {
 		String currentCheckedLine;
 		int currentCheckedIndex;
-		int codeSize = codeList.size();
-
-		for (currentCheckedIndex = 0; currentCheckedIndex < codeSize; currentCheckedIndex++) {
+		
+		for (currentCheckedIndex = index; currentCheckedIndex < codeSize; currentCheckedIndex++) {
 			currentCheckedLine = codeList.get(currentCheckedIndex);
-			if (recursiveCheck(codeList, currentCheckedIndex, currentCheckedLine)) {
-				codeSize += addBrackets(codeList, currentCheckedIndex);
+			if (lineIsStatementWithoutBrackets(currentCheckedLine) && !lineIsFollowedByOpenBracket(currentCheckedIndex)) {
+				codeSize += addBrackets(currentCheckedIndex);
 			}
 		}
 	}
-
 	
 	/**
-	 * Adds curly brackets to loop or condition declaration without curly brackets.
+	 * Checks whether the provided line (string) is loop / condition statement without opening bracket in the same line.
+	 * @param currentCheckedLine
+	 * @return
+	 */
+	private boolean lineIsStatementWithoutBrackets(String currentCheckedLine) {
+		
+		boolean statementWithoutBracketsHasFound = false;
+		
+		for (Pattern statementPattern : newlineDeclarations) {
+			if(statementPattern.matcher(currentCheckedLine).find()) {
+				statementWithoutBracketsHasFound = true;
+			}
+		}
+		
+		if (statementWithoutBracketsHasFound != true) {
+			for (Pattern statementPattern : commentedDeclarations) {
+				if(statementPattern.matcher(currentCheckedLine).find()) {
+					statementWithoutBracketsHasFound = true;
+				}
+			}
+		}
+		return statementWithoutBracketsHasFound;
+	}
+	
+	/**
+	 * Adds opening and closing brackets to loop / condition declaration.
+	 * In addition - this method handle cases when the relevant new scope includes other statements.
 	 * @param codeList
 	 * 		The program's input inserted into ArrayList data structure.
 	 * @param currentCheckedIndex
 	 * 		The current index in the list we want to check for.
 	 * @return
 	 */
-	private int addBrackets(ArrayList<String> codeList, int currentCheckedIndex) {
-		
+	private int addBrackets(int currentCheckedIndex) {
+		int numOfLinesToIgnore;
 		int numOfPotentialBrackets = 1;
 		int closerBracketIndex = currentCheckedIndex + 2;
+		int nextLineIndex;
 		String currentCheckedLine = codeList.get(currentCheckedIndex);
-		String fixedDaclarationWithBracket = addOpenBracketToEndOfDeclaration(currentCheckedLine);
-		Object[] answer;
-		
-		codeList.remove(currentCheckedIndex);
-		codeList.add(currentCheckedIndex, fixedDaclarationWithBracket);
-		
-		for (int i = currentCheckedIndex + 1; i < codeList.size(); i++) {
-			if (lineIsCommented(codeList.get(i))) {
+
+		addOpenBracketToEndOfDeclaration(currentCheckedIndex, currentCheckedLine);
+		for (nextLineIndex = currentCheckedIndex + 1; nextLineIndex < codeList.size(); nextLineIndex++) {
+			if (lineIsCommented(codeList.get(nextLineIndex))) {
 				closerBracketIndex++;
 				continue;
 			}
-			
-			answer = checkForInnerScopes(codeList, i);
-			
-			if (recursiveCheck(codeList, i, codeList.get(i))) {
-				addBrackets(codeList, i);
-				if((boolean)answer[0] == true) {
-					closerBracketIndex = i + ((int)answer[1] + 1);
-					i += (int)answer[1] - 1;
+
+			if (lineIsStatementWithoutBrackets(codeList.get(nextLineIndex)) && !lineIsFollowedByOpenBracket(nextLineIndex)) {
+				codeSize += addBrackets(nextLineIndex);
+				numOfLinesToIgnore = checkForInnerScopes(nextLineIndex);
+				if (numOfLinesToIgnore > 0) {
+					closerBracketIndex = currentCheckedIndex + numOfLinesToIgnore + 1;
 					continue;
-				} else {
-					currentCheckedLine = codeList.get(i);
-					fixedDaclarationWithBracket = addOpenBracketToEndOfDeclaration(currentCheckedLine);
-					codeList.remove(i);
-					codeList.add(i, fixedDaclarationWithBracket);
-					numOfPotentialBrackets++;
-					closerBracketIndex = i + ((int)answer[1] + 2);
-				}
+				} 
 			} else {
-				closerBracketIndex += ((int)answer[1]);
+				numOfLinesToIgnore = checkForInnerScopes(nextLineIndex);
+				if (numOfLinesToIgnore > 0) {
+					closerBracketIndex = currentCheckedIndex + numOfLinesToIgnore + 1;
+				}
 				break;
 			}
 		}
-		
+
 		// Adding closing brackets as much
 		for (int i = 0; i < numOfPotentialBrackets; i++) {
 			codeList.add(closerBracketIndex, "}");
@@ -215,14 +238,13 @@ public class BracketsCodeReformatter {
 
 		return numOfPotentialBrackets;
 	}
-
 	
 	/**
 	 * Adds open curly brackets to loop or condition declaration without curly brackets.
 	 * @param currentCheckedLine - Declaration without opening bracket
 	 * @return The given checkedLine with opening bracket after declaration 
 	 */
-	private String addOpenBracketToEndOfDeclaration(String currentCheckedLine) {
+	private void addOpenBracketToEndOfDeclaration(int currentCheckedIndex, String currentCheckedLine) {
 		
 		String bracketLine;
 		Matcher matcher;
@@ -244,40 +266,52 @@ public class BracketsCodeReformatter {
 			currentCheckedLine = currentCheckedLine + " {";
 		}
 		
-		return currentCheckedLine;
+		codeList.remove(currentCheckedIndex);
+		codeList.add(currentCheckedIndex, currentCheckedLine);
 	}
 
-	
-	private Object[] checkForInnerScopes(ArrayList<String> list, int currentCheckedIndex) {
+	/**
+	 * Checks whether the current scoop contains additional scoops.
+	 * @param currentCheckedIndex
+	 * @return numOfLinesToIgnore - the number of lines to skip over (indicates the correct line for the closing bracket).
+	 */
+	private int checkForInnerScopes(int currentCheckedIndex) {
 		
 		String currentCheckedLine;
 		int numOfLinesToIgnore = 0;
-		Object[] answer = new Object[2];
-		answer[0] = false;
-
-		currentCheckedLine = list.get(++currentCheckedIndex);
-		while (lineIsCommented(currentCheckedLine)) {
-			numOfLinesToIgnore++;
-			currentCheckedIndex++;
-			currentCheckedLine = list.get(currentCheckedIndex);
-		}
-
+		int numOfOpenBracketsFound = 0;
+		
+		currentCheckedLine = codeList.get(currentCheckedIndex);
 		if (lineContainsOpeningBracket(currentCheckedLine)) {
+			numOfOpenBracketsFound++;
 			numOfLinesToIgnore++;
-			while (lineIsCommented(currentCheckedLine) || !lineContainsClosingBracket(currentCheckedLine)) {
+			currentCheckedLine = codeList.get(++currentCheckedIndex);
+		} else if (lineIsFollowedByOpenBracket(currentCheckedIndex)) {
+			numOfLinesToIgnore++;
+			currentCheckedLine = codeList.get(++currentCheckedIndex);
+		}
+		while (lineIsCommented(currentCheckedLine) || !lineContainsClosingBracket(currentCheckedLine) || numOfOpenBracketsFound > 1) {
+			if (lineContainsOpeningBracket(currentCheckedLine)) {
+				numOfOpenBracketsFound++;
 				numOfLinesToIgnore++;
-				currentCheckedIndex++;
-				currentCheckedLine = list.get(currentCheckedIndex);
+			}
+			if (lineContainsClosingBracket(currentCheckedLine)) {
+				numOfOpenBracketsFound--;
 			}
 			
-			answer[0] = true;	
+			numOfLinesToIgnore++;
+			currentCheckedIndex++;
+			currentCheckedLine = codeList.get(currentCheckedIndex);
 		}
 		
-		answer[1] = numOfLinesToIgnore;
-		return answer;
+		return numOfLinesToIgnore;	
 	}
-
 	
+	/**
+	 * Checks whether the provided line (string) is a comment (starts with "//).
+	 * @param currentCheckedLine
+	 * @return true in case of commented line, false otherwise.
+	 */
 	private boolean lineIsCommented(String currentCheckedLine) {
 		
 		boolean lineIsComment = false;
@@ -293,7 +327,11 @@ public class BracketsCodeReformatter {
 		return lineIsComment;
 	}
 	
-	
+	/**
+	 * Checks whether the provided line (string) contains opening bracket.
+	 * @param currentCheckedLine
+	 * @return true in case of opening bracket, false otherwise.
+	 */
 	private boolean lineContainsOpeningBracket(String currentCheckedLine) {
 		
 		boolean lineContainsOpenBracket = false;
@@ -309,7 +347,11 @@ public class BracketsCodeReformatter {
 		return lineContainsOpenBracket;
 	}
 	
-	
+	/**
+	 * Checks whether the provided line (string) contains closing bracket.
+	 * @param currentCheckedLine
+	 * @return true in case of closing bracket, false otherwise.
+	 */
 	private boolean lineContainsClosingBracket(String currentCheckedLine) {
 			
 			boolean lineContainsClosingBracket = false;
@@ -325,54 +367,33 @@ public class BracketsCodeReformatter {
 			return lineContainsClosingBracket;
 		}
 	
-	
 	/**
-	 * An auxiliary method for checking if loop or condition declaration isn't followed by concrete command.
+	 * Checking if loop or condition declaration's followed by open bracket (checking the following line in code).
 	 * @param currentCheckedLine
 	 * 		Checked line in the program's input.
 	 * @return
 	 * 		True if the method check succeed, else false.
 	 */
-	private boolean recursiveCheck(ArrayList<String> codeList, int currentCheckedIndex, String currentCheckedLine) {
+	private boolean lineIsFollowedByOpenBracket(int currentCheckedIndex) {
 		
 		String nextLine = null;
 		Matcher isBracket = null;
 		Pattern openBracket = Pattern.compile("^(\\s|\\t)*\\{");
-		boolean found = false;
-		
-		for (Pattern statementPattern : newlineDeclarations) {
-			if(statementPattern.matcher(currentCheckedLine).find()) {
-				found = true;
-				break;
-			}
-		}
-		
-		if (found == false) {
-			for (Pattern statementPattern : commentedDeclarations) {
-				if(statementPattern.matcher(currentCheckedLine).find()) {
-					found = true;
-					break;
-				}
-			}
-		}
-		
-		if (found) {
+
+		nextLine = codeList.get(++currentCheckedIndex);
+		while (lineIsCommented(nextLine)) {
 			nextLine = codeList.get(++currentCheckedIndex);
-			while(lineIsCommented(nextLine)) {
-				nextLine = codeList.get(++currentCheckedIndex);
-			}
-			
-			isBracket = openBracket.matcher(nextLine);
-			
-			if (!isBracket.find()) {
-				return true;
-			}
+		}
+
+		isBracket = openBracket.matcher(nextLine);
+
+		if (isBracket.find()) {
+			return true;
 		}
 		
 		return false;
 	}
 
-	
 	/**
 	 * Checks if the current loop / condition declaration is followed by a comment.
 	 * @param currentCheckedLine
@@ -390,9 +411,9 @@ public class BracketsCodeReformatter {
 
 		return false;
 	}
-	
+
 	/**
-	 * The initiator method of this class.
+	 * The initiator method of this module.
 	 * 		Checks the entire program for loops and conditions declaration without scope.
 	 * @param inputFilePath
 	 * 		The path of the input file (program / class).
@@ -401,11 +422,11 @@ public class BracketsCodeReformatter {
 	 */
 	public static void bracketsReformatter(String inputFilePath, String reformattedFilePath) {
 
-		ArrayList<String> list = analyzerUtils.FileOperations
+		ArrayList<String> codeList = analyzerUtils.FileOperations
 				.fileContentToArrayListStringOnly(new File(inputFilePath), true);
-		BracketsCodeReformatter bracketsCodeReformatter = new BracketsCodeReformatter();
-		bracketsCodeReformatter.checkInlineDecleration(list);
-		bracketsCodeReformatter.checkDeclarationsWithoutBrackets(list);
-		analyzerUtils.FileOperations.writeCodeToFileString(list, new File(reformattedFilePath));
+		BracketsCodeReformatter bracketsCodeReformatter = new BracketsCodeReformatter(codeList);
+		bracketsCodeReformatter.checkInlineDecleration();
+		bracketsCodeReformatter.checkDeclarationsWithoutBrackets(0);
+		analyzerUtils.FileOperations.writeCodeToFileString(codeList, new File(reformattedFilePath));
 	}
 }
